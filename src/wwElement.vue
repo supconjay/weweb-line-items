@@ -71,11 +71,11 @@
                   <input v-else class="pp-input pp-input--cell" :type="isNumericType(col.type) ? 'number' : 'text'" v-model="editValue" ref="editor" @blur="commitEdit" @keydown.enter.prevent="commitEdit" @keydown.esc="cancelEdit" />
                 </template>
                 <template v-else>
-                  <span v-if="col.type === 'status'" class="pp-pill" :class="`pp-pill--${statusKey(r.data[col.key])}`"><span class="pp-pill__dot"></span>{{ normVal(r.data[col.key]) || '—' }}</span>
-                  <span v-else-if="col.type === 'boolean'" class="pp-bool" :class="truthyBool(r.data[col.key]) ? 'pp-bool--on' : 'pp-bool--off'">
-                    <svg class="pp-svg" v-bind="svgAttrs"><path :d="ic(truthyBool(r.data[col.key]) ? 'check' : 'x')"></path></svg>{{ truthyBool(r.data[col.key]) ? (content.boolTrue || 'Yes') : (content.boolFalse || 'No') }}
+                  <span v-if="col.type === 'status'" class="pp-pill" :class="`pp-pill--${statusKey(cellValue(col, r.data))}`"><span class="pp-pill__dot"></span>{{ normVal(cellValue(col, r.data)) || '—' }}</span>
+                  <span v-else-if="col.type === 'boolean'" class="pp-bool" :class="truthyBool(cellValue(col, r.data)) ? 'pp-bool--on' : 'pp-bool--off'">
+                    <svg class="pp-svg" v-bind="svgAttrs"><path :d="ic(truthyBool(cellValue(col, r.data)) ? 'check' : 'x')"></path></svg>{{ truthyBool(cellValue(col, r.data)) ? (content.boolTrue || 'Yes') : (content.boolFalse || 'No') }}
                   </span>
-                  <span v-else :class="[{ 'pp-muted': isEmpty(r.data[col.key]) }, col.multiline ? 'pp-cell--multiline' : '']">{{ isEmpty(r.data[col.key]) ? '—' : cellDisplay(col, r.data[col.key]) }}</span>
+                  <span v-else :class="[{ 'pp-muted': isEmpty(cellValue(col, r.data)) }, col.multiline ? 'pp-cell--multiline' : '']">{{ isEmpty(cellValue(col, r.data)) ? '—' : cellDisplay(col, cellValue(col, r.data)) }}</span>
                 </template>
               </td>
               <td v-if="content.showRowAction" class="pp-grid__action pp-al-right" :data-label="content.rowActionHeader || ''">
@@ -121,7 +121,20 @@
         <div class="pp-addrow__grid">
           <label v-for="col in addColumns" :key="col.key" class="pp-fieldgroup">
             <span>{{ col.label }}</span>
-            <select v-if="optionsByKey[col.key] && optionsByKey[col.key].length" class="pp-input" v-model="newRow[col.key]" @change="onAddSelect(col)">
+            <div v-if="col.compute" class="pp-input pp-input--readonly">{{ addComputedDisplay(col) }}</div>
+            <div v-else-if="col.picker" class="pp-picker">
+              <input class="pp-input" v-model="newRow[col.key]" autocomplete="off"
+                :placeholder="col.picker.placeholder || ('Search or enter ' + String(col.label).toLowerCase())"
+                @focus="openPicker(col)" @input="openPicker(col)" @blur="closePickerSoon" @keydown.esc="closePicker" />
+              <div v-if="pickerOpenKey === col.key && filteredPickerItems(col).length" class="pp-picker__menu">
+                <button v-for="(item, idx) in filteredPickerItems(col)" :key="idx" type="button" class="pp-picker__item" @mousedown.prevent="choosePicker(col, item)">
+                  <img v-if="pickerIcon(col, item)" class="pp-picker__icon" :src="pickerIcon(col, item)" alt="" loading="lazy" />
+                  <span class="pp-picker__label">{{ pickerLabel(col, item) }}</span>
+                  <span v-if="pickerHint(col, item)" class="pp-picker__hint">{{ pickerHint(col, item) }}</span>
+                </button>
+              </div>
+            </div>
+            <select v-else-if="optionsByKey[col.key] && optionsByKey[col.key].length" class="pp-input" v-model="newRow[col.key]" @change="onAddSelect(col)">
               <option value="">—</option>
               <option v-for="opt in optionsByKey[col.key]" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
@@ -178,6 +191,7 @@ export default {
       editing: null,
       editValue: "",
       newRow: {},
+      pickerOpenKey: null,
       dragFrom: null,
       dragOver: null,
       _onDocClick: null,
@@ -186,6 +200,7 @@ export default {
   created() {
     this.syncRows();
     this.initHidden();
+    this.resetNewRow();
     this.filtersOpen = this.content.filtersOpen === true;
     this.pageSize = Number(this.content.pageSize) > 0 ? Number(this.content.pageSize) : 10;
   },
@@ -268,7 +283,7 @@ export default {
       const t = {};
       this.totalColumns.forEach((col) => {
         let sum = 0;
-        this.filteredRows.forEach((r) => { const n = Number(r.data[col.key]); if (isFinite(n)) sum += n; });
+        this.filteredRows.forEach((r) => { const n = Number(this.cellValue(col, r.data)); if (isFinite(n)) sum += n; });
         t[col.key] = sum;
       });
       return t;
@@ -293,7 +308,11 @@ export default {
     syncRows() {
       const src = this.content.items;
       const arr = Array.isArray(src) ? src : (src && Array.isArray(src.data) ? src.data : []);
-      this.localRows = arr.map((r) => (r && typeof r === "object" ? Object.assign({}, r) : { value: r }));
+      this.localRows = arr.map((r) => this.applyComputed(r && typeof r === "object" ? Object.assign({}, r) : { value: r }));
+    },
+    applyComputed(rowData) {
+      this.resolvedColumns.forEach((col) => { if (col.compute) rowData[col.key] = this.computeValue(col, rowData); });
+      return rowData;
     },
     initHidden() {
       const h = {};
@@ -362,6 +381,10 @@ export default {
         hideForLob: Array.isArray(c.hideForLob) ? c.hideForLob.map(String) : null,
         decimals: c.decimals != null && c.decimals !== "" ? Number(c.decimals) : null,
         scale: c.scale != null && c.scale !== "" ? Number(c.scale) : null,
+        sortOptions: c.sortOptions !== false,
+        compute: c.compute && typeof c.compute === "object" ? c.compute : null,
+        picker: c.picker && typeof c.picker === "object" ? c.picker : null,
+        addDefault: c.addDefault,
       };
     },
     colOptions(col) {
@@ -400,6 +423,82 @@ export default {
       return mapped;
     },
     colByKey(key) { return this.resolvedColumns.find((c) => c.key === key); },
+    getPath(obj, path) {
+      if (obj == null || path == null || path === "") return undefined;
+      if (String(path).indexOf(".") === -1) return obj[path];
+      return String(path).split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+    },
+    computeValue(col, rowData) {
+      const c = col.compute; if (!c) return rowData ? rowData[col.key] : "";
+      const keys = Array.isArray(c.keys) ? c.keys : [];
+      const nums = keys.map((k) => { const n = Number(this.getPath(rowData, k)); return isFinite(n) ? n : 0; });
+      const op = c.op || "product";
+      if (op === "sum") return nums.reduce((a, b) => a + b, 0);
+      if (op === "difference") return nums.length ? nums.reduce((a, b) => a - b) : 0;
+      return keys.length ? nums.reduce((a, b) => a * b, 1) : 0; // product
+    },
+    cellValue(col, rowData) { return col.compute ? this.computeValue(col, rowData) : (rowData ? rowData[col.key] : ""); },
+    // ---- add-form price-guide picker ----
+    pickerSourceItems(col) {
+      const p = col.picker || {};
+      let os = this.content.pickerSources;
+      if (os && !Array.isArray(os) && Array.isArray(os.data)) os = os.data;
+      let list = null;
+      const key = p.sourceKey;
+      if (Array.isArray(os)) {
+        const isPairs = os.some((o) => o && typeof o === "object" && "key" in o && "options" in o);
+        if (isPairs && key) { const f = os.find((o) => o && o.key === key); if (f) list = f.options; }
+        else list = os; // bare array -> single source
+      } else if (os && typeof os === "object") {
+        list = key ? os[key] : null;
+      }
+      if (list && !Array.isArray(list) && Array.isArray(list.data)) list = list.data;
+      return Array.isArray(list) ? list : [];
+    },
+    filteredPickerItems(col) {
+      const p = col.picker || {};
+      let items = this.pickerSourceItems(col);
+      if (p.categoryKey && p.itemCategoryField) {
+        const cat = this.newRow[p.categoryKey];
+        if (cat != null && cat !== "") items = items.filter((it) => String(this.getPath(it, p.itemCategoryField)) === String(cat));
+      }
+      const q = String(this.newRow[col.key] || "").trim().toLowerCase();
+      if (q) {
+        const fields = Array.isArray(p.searchFields) && p.searchFields.length ? p.searchFields : [p.labelField || "description"];
+        items = items.filter((it) => fields.some((f) => String(this.getPath(it, f) || "").toLowerCase().indexOf(q) !== -1));
+      }
+      return items.slice(0, p.limit || 50);
+    },
+    pickerLabel(col, item) { return String(this.getPath(item, (col.picker || {}).labelField || "description") || ""); },
+    pickerIcon(col, item) { const f = (col.picker || {}).iconField; return f ? this.getPath(item, f) : null; },
+    pickerHint(col, item) {
+      const f = (col.picker || {}).hintField; if (!f) return "";
+      const v = this.getPath(item, f);
+      if (v == null || v === "") return "";
+      return isFinite(Number(v)) ? this.money(Number(v), 0) : String(v);
+    },
+    openPicker(col) { this.pickerOpenKey = col.key; },
+    closePicker() { this.pickerOpenKey = null; },
+    closePickerSoon() { setTimeout(() => { this.pickerOpenKey = null; }, 120); },
+    choosePicker(col, item) {
+      const p = col.picker || {};
+      const map = p.map || {};
+      const nr = Object.assign({}, this.newRow);
+      const mapKeys = Object.keys(map);
+      if (mapKeys.length) mapKeys.forEach((rowKey) => { nr[rowKey] = this.getPath(item, map[rowKey]); });
+      else nr[col.key] = this.pickerLabel(col, item);
+      this.newRow = nr;
+      this.pickerOpenKey = null;
+      if (p.emitOnSelect) {
+        this.$emit("trigger-event", { name: "optionSelect", event: { key: col.key, value: this.getPath(item, p.valueField || "airtable_id"), label: this.pickerLabel(col, item), context: "add", rowIndex: -1, row: Object.assign({}, nr), item } });
+      }
+    },
+    addComputedDisplay(col) { return this.cellDisplay(col, this.computeValue(col, this.newRow)); },
+    resetNewRow() {
+      const nr = {};
+      this.resolvedColumns.forEach((c) => { if (c.addDefault !== undefined) nr[c.key] = c.addDefault; });
+      this.newRow = nr;
+    },
     alignFor(col) {
       if (col.align && col.align !== "auto") return col.align;
       return this.isNumericType(col.type) ? "right" : "left";
@@ -475,7 +574,7 @@ export default {
       if (s.includes("schedul") || s.includes("draft") || s.includes("pending")) return "info";
       return "slate";
     },
-    isEditable(col) { return this.content.editable !== false && col.editable !== false; },
+    isEditable(col) { return this.content.editable !== false && col.editable !== false && !col.compute; },
     isAddable(col) {
       if (col.addable === true) return true;
       if (col.addable === false) return false;
@@ -495,7 +594,7 @@ export default {
       if (!this.isEditable(col) || this.isEditingCell(col, r)) return;
       if (col.type === "boolean") {
         const v = !this.truthyBool(r.data[col.key]);
-        const row = Object.assign({}, this.localRows[r._i], { [col.key]: v });
+        const row = this.applyComputed(Object.assign({}, this.localRows[r._i], { [col.key]: v }));
         this.localRows.splice(r._i, 1, row);
         this.$emit("trigger-event", { name: "cellChange", event: { rowIndex: r._i, key: col.key, value: v, row, rows: this.localRows.slice() } });
         return;
@@ -525,7 +624,7 @@ export default {
       }
       const i = this.editing.i;
       const key = this.editing.key;
-      const row = Object.assign({}, this.localRows[i], { [key]: v });
+      const row = this.applyComputed(Object.assign({}, this.localRows[i], { [key]: v }));
       this.localRows.splice(i, 1, row);
       this.$emit("trigger-event", { name: "cellChange", event: { rowIndex: i, key, value: v, row, rows: this.localRows.slice() } });
       if (col && col.emitOnSelect) {
@@ -582,8 +681,10 @@ export default {
         if (v != null && v !== "" && this.isNumericType(col.type)) { const n = Number(v); if (!isNaN(n)) v = n; }
         row[col.key] = v == null ? "" : v;
       });
+      // Fill computed columns (e.g. Retail = Qty × Unit Retail) from the assembled row.
+      this.resolvedColumns.forEach((col) => { if (col.compute) row[col.key] = this.computeValue(col, row); });
       this.localRows.push(row);
-      this.newRow = {};
+      this.resetNewRow();
       this.$emit("trigger-event", { name: "addRow", event: { row } });
       if (this.content.paginate !== false) this.goPage(this.pageCount);
     },
@@ -755,6 +856,18 @@ export default {
 .pp-addrow__btnwrap { justify-content: flex-end; }
 .pp-addrow__btn { height: 40px; justify-content: center; width: 100%; }
 .pp-svg { display: block; }
+
+/* read-only computed field (e.g. Retail) */
+.pp-input--readonly { display: flex; align-items: center; justify-content: flex-end; min-height: 38px; background: var(--surface-2); color: var(--text); font-weight: 700; cursor: default; }
+
+/* add-form searchable picker (price guide) */
+.pp-picker { position: relative; }
+.pp-picker__menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; max-height: 300px; overflow-y: auto; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: 2px; }
+.pp-picker__item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; border-radius: 8px; cursor: pointer; font: inherit; color: var(--text); }
+.pp-picker__item:hover { background: var(--surface-2); }
+.pp-picker__icon { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex: none; background: var(--surface-3); }
+.pp-picker__label { flex: 1 1 auto; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.pp-picker__hint { flex: none; font-size: 12.5px; font-weight: 700; color: var(--primary); white-space: nowrap; }
 
 /* density */
 .pp-density-compact .pp-grid thead th { padding: 7px 10px; }

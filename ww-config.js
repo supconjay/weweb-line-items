@@ -48,11 +48,26 @@ export default {
       defaultValue: [
         { key: "Task Number", label: "Task #", type: "number", width: 70, editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Category", label: "Category", type: "text", optionsKey: "categories", optionLabel: "name", optionValue: "airtable_record_id", addable: true, emitOnSelect: true },
-        { key: "Description", label: "Description", type: "text", multiline: true },
+        {
+          key: "Description", label: "Description", type: "text", multiline: true,
+          // In the ADD form, this field becomes a searchable price-guide picker.
+          // Selecting an item fills the row via `map` (rowField: priceGuideField).
+          picker: {
+            sourceKey: "priceGuide",         // list in "Picker sources"
+            labelField: "description",        // text shown in the dropdown
+            iconField: "category.icon",       // little image shown (dot path OK)
+            hintField: "retail",              // right-aligned price hint
+            searchFields: ["description"],    // fields matched against typed text
+            categoryKey: "Category",          // filter items by the row's selected category…
+            itemCategoryField: "category.airtable_record_id", // …matched against this on each item
+            map: { "Description": "description", "Unit Retail": "retail", "Labor Cost": "labor", "Material Cost": "material" },
+          },
+        },
         { key: "Name (from Locations)", label: "Location", type: "text", editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
-        { key: "Quantity", label: "Qty", type: "number", width: 70 },
+        { key: "Quantity", label: "Qty", type: "number", width: 70, addDefault: 1 },
         { key: "Unit Retail", label: "Unit Retail", type: "currency", hideForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
-        { key: "Retail", label: "Retail", type: "currency", total: true },
+        // Retail is COMPUTED (Qty × Unit Retail) — read-only in the grid and on the form.
+        { key: "Retail", label: "Retail", type: "currency", total: true, editable: false, addable: true, compute: { op: "product", keys: ["Quantity", "Unit Retail"] } },
         { key: "Labor Cost", label: "Labor", type: "currency", total: true, hidden: true },
         { key: "Material Cost", label: "Material", type: "currency", total: true, hidden: true },
         { key: "margin", label: "Margin", type: "percent", scale: 100, editable: false },
@@ -81,6 +96,21 @@ export default {
             { name: "Electrical", airtable_record_id: "recElectrical01" },
           ],
         },
+      ],
+    },
+
+    // ---- price-guide (or any) picker sources for the add form ----
+    // Bind to your price-guide collection so the Description field becomes a
+    // searchable list. Accepts a bare array (single source), a { key: [...] } map,
+    // or [{ key, options }] pairs. A column's picker.sourceKey selects which list.
+    //   e.g. bind to: collections['<price-guide-id>']?.['data']
+    // Each column.picker maps item fields into the new row on select.
+    pickerSources: {
+      label: { en: "Picker sources (bind)" }, type: "Array", bindable: true, section: "settings",
+      defaultValue: [
+        { id: 620, description: "0300 - Install/Replace [white] 18cuft top freezer refrigerator (WITHOUT icemaker)", labor: 0, material: 800, retail: 950, airtable_id: "rec22ZO0MFCBpF6Hq", category: { name: "Appliances", airtable_record_id: "recGDc38vE0tY4gL5", icon: "https://iepfgtjizwzbdgxyzaab.supabase.co/storage/v1/object/public/avatars/category_icons/59248849-f07c-4080-96cd-9dcad6d2d63e.png" } },
+        { id: 618, description: "0301 - Install/Replace [white] refrigerator with icemaker incl. new water line", labor: 0, material: 915, retail: 1090, airtable_id: "rec0QsaSFHHhA7xQ4", category: { name: "Appliances", airtable_record_id: "recGDc38vE0tY4gL5", icon: "https://iepfgtjizwzbdgxyzaab.supabase.co/storage/v1/object/public/avatars/category_icons/59248849-f07c-4080-96cd-9dcad6d2d63e.png" } },
+        { id: 622, description: "0303 - Install/Replace [white] electric range incl. new power cord", labor: 0, material: 600, retail: 699, airtable_id: "recDDvPfEYEQOVlS8", category: { name: "Appliances", airtable_record_id: "recGDc38vE0tY4gL5", icon: "https://iepfgtjizwzbdgxyzaab.supabase.co/storage/v1/object/public/avatars/category_icons/59248849-f07c-4080-96cd-9dcad6d2d63e.png" } },
       ],
     },
 
