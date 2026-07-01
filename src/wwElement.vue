@@ -367,10 +367,19 @@ export default {
     colOptions(col) {
       let src = Array.isArray(col.options) && col.options.length ? col.options : null;
       if (!src && col.optionsKey) {
-        const os = this.content.optionSources;
+        let os = this.content.optionSources;
+        // Unwrap a bound collection object: { data: [...] } -> [...]
+        if (os && !Array.isArray(os) && Array.isArray(os.data)) os = os.data;
         let list = null;
-        if (Array.isArray(os)) { const found = os.find((o) => o && o.key === col.optionsKey); if (found) list = found.options; }
-        else if (os && typeof os === "object") { list = os[col.optionsKey]; }
+        if (Array.isArray(os)) {
+          // Pair form: [{ key, options }]. Only treat as pairs when entries actually carry `key`+`options`.
+          const isPairs = os.some((o) => o && typeof o === "object" && "key" in o && "options" in o);
+          if (isPairs) { const found = os.find((o) => o && o.key === col.optionsKey); if (found) list = found.options; }
+          // Bare array of option records (e.g. a collection bound directly) -> use as the single source.
+          else list = os;
+        } else if (os && typeof os === "object") {
+          list = os[col.optionsKey];
+        }
         if (list && !Array.isArray(list) && Array.isArray(list.data)) list = list.data;
         if (Array.isArray(list)) src = list;
       }
@@ -443,7 +452,11 @@ export default {
       if (Array.isArray(raw)) raw = this.joinArray(raw);
       if (this.isEmpty(raw)) return "";
       let n = raw;
-      if (this.isNumericType(col.type) && col.scale != null) { const x = Number(raw); if (isFinite(x)) n = x * col.scale; }
+      if (this.isNumericType(col.type)) {
+        let x = Number(raw);
+        if (!isFinite(x)) x = 0; // guard objects / NaN / divide-by-zero (e.g. margin when retail is 0) -> 0
+        n = col.scale != null ? x * col.scale : x;
+      }
       let out;
       switch (col.type) {
         case "currency": out = this.money(n, col.decimals); break;
