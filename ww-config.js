@@ -49,7 +49,7 @@ export default {
         { key: "Task Number", label: "Task #", type: "number", width: 70, editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Category", label: "Category", type: "text", optionsKey: "categories", optionLabel: "name", optionValue: "airtable_record_id", addable: true, emitOnSelect: true },
         {
-          key: "Description", label: "Description", type: "text", multiline: true,
+          key: "Description", label: "Description", type: "text", multiline: true, width: 280,
           // In the ADD form, this field becomes a searchable price-guide picker.
           // Selecting an item fills the row via `map` (rowField: priceGuideField).
           picker: {

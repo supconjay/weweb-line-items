@@ -42,7 +42,7 @@
 
       <!-- grid -->
       <div class="pp-grid__wrap">
-        <table class="pp-grid" :class="{ 'pp-grid--wrap': content.wrapText }">
+        <table class="pp-grid" :class="{ 'pp-grid--wrap': content.wrapText }" :style="gridStyle">
           <thead>
             <tr>
               <th v-if="canReorder" class="pp-grid__draghead"></th>
@@ -123,9 +123,9 @@
             <span>{{ col.label }}</span>
             <div v-if="col.compute" class="pp-input pp-input--readonly">{{ addComputedDisplay(col) }}</div>
             <div v-else-if="col.picker" class="pp-picker">
-              <input class="pp-input" v-model="newRow[col.key]" autocomplete="off"
+              <textarea class="pp-input pp-textarea pp-picker__input" v-model="newRow[col.key]" rows="1" autocomplete="off"
                 :placeholder="col.picker.placeholder || ('Search or enter ' + String(col.label).toLowerCase())"
-                @focus="openPicker(col)" @input="openPicker(col)" @blur="closePickerSoon" @keydown.esc="closePicker" />
+                @focus="onPickerFocus(col, $event)" @input="onPickerInput(col, $event)" @blur="closePickerSoon" @keydown.esc="closePicker"></textarea>
               <div v-if="pickerOpenKey === col.key" class="pp-picker__menu">
                 <button v-for="(item, idx) in filteredPickerItems(col)" :key="idx" type="button" class="pp-picker__item" @mousedown.prevent="choosePicker(col, item)">
                   <img v-if="pickerIcon(col, item)" class="pp-picker__icon" :src="pickerIcon(col, item)" alt="" loading="lazy" />
@@ -238,6 +238,15 @@ export default {
     addColumns() { return this.resolvedColumns.filter((c) => this.isAddable(c)); },
     canReorder() { return this.content.reorderable !== false; },
     footColspan() { return this.visibleColumns.length + (this.content.showRowAction ? 1 : 0) + (this.canReorder ? 1 : 0); },
+    gridStyle() {
+      // Give the table a comfortable min-width so columns aren't crammed; the
+      // wrapper scrolls horizontally when it exceeds the container.
+      let w = 0;
+      this.visibleColumns.forEach((c) => { w += c.width ? Number(c.width) : this.defaultColWidth(c); });
+      if (this.canReorder) w += 34;
+      if (this.content.showRowAction) w += 96;
+      return { minWidth: w + "px" };
+    },
     anyFilterActive() { return Object.keys(this.filters).some((k) => String(this.filters[k] || "").trim() !== ""); },
     filteredRows() {
       let rows = this.localRows.map((data, _i) => ({ data, _i }));
@@ -486,6 +495,8 @@ export default {
       return isFinite(Number(v)) ? this.money(Number(v), 0) : String(v);
     },
     openPicker(col) { this.pickerOpenKey = col.key; },
+    onPickerFocus(col, e) { this.openPicker(col); this.autoGrow(e); },
+    onPickerInput(col, e) { this.openPicker(col); this.autoGrow(e); },
     closePicker() { this.pickerOpenKey = null; },
     closePickerSoon() { setTimeout(() => { this.pickerOpenKey = null; }, 120); },
     choosePicker(col, item) {
@@ -497,6 +508,8 @@ export default {
       else nr[col.key] = this.pickerLabel(col, item);
       this.newRow = nr;
       this.pickerOpenKey = null;
+      // Grow the description textarea to fit the filled-in text.
+      this.$nextTick(() => { const el = document.activeElement; if (el && el.tagName === "TEXTAREA") this.autoGrow(el); });
       if (p.emitOnSelect) {
         this.$emit("trigger-event", { name: "optionSelect", event: { key: col.key, value: this.getPath(item, p.valueField || "airtable_id"), label: this.pickerLabel(col, item), context: "add", rowIndex: -1, row: Object.assign({}, nr), item } });
       }
@@ -520,6 +533,13 @@ export default {
     },
     alignClass(col) { return "pp-al-" + this.alignFor(col); },
     thStyle(col) { return col.width ? { width: col.width + "px", minWidth: col.width + "px" } : {}; },
+    defaultColWidth(col) {
+      if (col.type === "boolean") return 96;
+      if (col.type === "status") return 130;
+      if (this.isNumericType(col.type)) return 100;
+      if (col.multiline) return 200;
+      return 140;
+    },
     money(n, decimals) {
       if (n == null || n === "") return "";
       if (typeof n === "string" && isNaN(Number(n))) return n;
@@ -791,15 +811,15 @@ export default {
 
 /* grid */
 .pp-grid__wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
-.pp-grid { width: 100%; border-collapse: collapse; table-layout: auto; }
-.pp-grid thead th { padding: 11px 14px; font-size: 12px; font-weight: 700; color: var(--text-muted); background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+.pp-grid { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 12.5px; }
+.pp-grid thead th { padding: 10px 12px; font-size: 11.5px; font-weight: 700; color: var(--text-muted); background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
 .pp-th { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; margin: 0; font: inherit; font-size: 12px; font-weight: 700; color: inherit; cursor: default; }
 .pp-th--sortable { cursor: pointer; }
 .pp-th--sortable:hover { color: var(--text); }
 .pp-al-right .pp-th { flex-direction: row-reverse; }
 .pp-sort { width: 13px; height: 13px; color: var(--text-subtle); opacity: .55; flex: none; }
 .pp-sort--active { color: var(--primary); opacity: 1; }
-.pp-grid tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; max-width: 460px; }
+.pp-grid tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; max-width: 460px; }
 .pp-grid:not(.pp-grid--wrap) tbody td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pp-grid--wrap tbody td { white-space: normal; word-break: break-word; }
 .pp-grid tbody tr:last-child td { border-bottom: none; }
