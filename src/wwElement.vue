@@ -829,7 +829,7 @@ export default {
 /* search */
 .pp-search { position: relative; margin-bottom: 14px; }
 .pp-search__icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--text-subtle); pointer-events: none; }
-.pp-search__input { padding-left: 40px; padding-right: 40px; height: 44px; font-size: 14px; }
+.pp-search .pp-search__input { padding: 0 40px; height: 44px; font-size: 14px; }
 .pp-search__clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; background: none; border-radius: 7px; color: var(--text-subtle); cursor: pointer; }
 .pp-search__clear:hover { background: var(--surface-2); color: var(--text); }
 .pp-search__clear .pp-svg { width: 15px; height: 15px; }
