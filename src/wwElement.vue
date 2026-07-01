@@ -126,12 +126,13 @@
               <input class="pp-input" v-model="newRow[col.key]" autocomplete="off"
                 :placeholder="col.picker.placeholder || ('Search or enter ' + String(col.label).toLowerCase())"
                 @focus="openPicker(col)" @input="openPicker(col)" @blur="closePickerSoon" @keydown.esc="closePicker" />
-              <div v-if="pickerOpenKey === col.key && filteredPickerItems(col).length" class="pp-picker__menu">
+              <div v-if="pickerOpenKey === col.key" class="pp-picker__menu">
                 <button v-for="(item, idx) in filteredPickerItems(col)" :key="idx" type="button" class="pp-picker__item" @mousedown.prevent="choosePicker(col, item)">
                   <img v-if="pickerIcon(col, item)" class="pp-picker__icon" :src="pickerIcon(col, item)" alt="" loading="lazy" />
                   <span class="pp-picker__label">{{ pickerLabel(col, item) }}</span>
                   <span v-if="pickerHint(col, item)" class="pp-picker__hint">{{ pickerHint(col, item) }}</span>
                 </button>
+                <div v-if="!filteredPickerItems(col).length" class="pp-picker__empty">{{ pickerEmptyText(col) }}</div>
               </div>
             </div>
             <select v-else-if="optionsByKey[col.key] && optionsByKey[col.key].length" class="pp-input" v-model="newRow[col.key]" @change="onAddSelect(col)">
@@ -460,7 +461,14 @@ export default {
       let items = this.pickerSourceItems(col);
       if (p.categoryKey && p.itemCategoryField) {
         const cat = this.newRow[p.categoryKey];
-        if (cat != null && cat !== "") items = items.filter((it) => String(this.getPath(it, p.itemCategoryField)) === String(cat));
+        if (cat != null && cat !== "") {
+          const want = String(cat);
+          items = items.filter((it) => {
+            let iv = this.getPath(it, p.itemCategoryField);
+            if (iv == null) { const c = it.category; iv = c && typeof c === "object" ? (c.airtable_record_id || c.id) : c; }
+            return String(iv) === want;
+          });
+        }
       }
       const q = String(this.newRow[col.key] || "").trim().toLowerCase();
       if (q) {
@@ -492,6 +500,13 @@ export default {
       if (p.emitOnSelect) {
         this.$emit("trigger-event", { name: "optionSelect", event: { key: col.key, value: this.getPath(item, p.valueField || "airtable_id"), label: this.pickerLabel(col, item), context: "add", rowIndex: -1, row: Object.assign({}, nr), item } });
       }
+    },
+    pickerEmptyText(col) {
+      const total = this.pickerSourceItems(col).length;
+      if (!total) return "No items — bind “Picker sources” to your price-guide collection";
+      const p = col.picker || {};
+      if (p.categoryKey && this.newRow[p.categoryKey]) return "No price-guide items for the selected category";
+      return "No matches";
     },
     addComputedDisplay(col) { return this.cellDisplay(col, this.computeValue(col, this.newRow)); },
     resetNewRow() {
@@ -868,6 +883,7 @@ export default {
 .pp-picker__icon { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; flex: none; background: var(--surface-3); }
 .pp-picker__label { flex: 1 1 auto; font-size: 13px; font-weight: 600; line-height: 1.35; }
 .pp-picker__hint { flex: none; font-size: 12.5px; font-weight: 700; color: var(--primary); white-space: nowrap; }
+.pp-picker__empty { padding: 12px 12px; font-size: 12.5px; color: var(--text-subtle); text-align: center; }
 
 /* density */
 .pp-density-compact .pp-grid thead th { padding: 7px 10px; }

@@ -22,8 +22,8 @@ export default {
       // Accepts a plain array OR a WeWeb collection { data: [...] }.
       // Sample below mirrors the Airtable "Line Items" collection field names.
       defaultValue: [
-        { "Task Number": 0, Category: ["recMdPX9UQl8RW9mo"], Description: "ADJUSTMENT — invoice reduced to match work completed (Amt -$434.33)", "Name (from Locations)": ["Kitchen"], note: "Reviewed with client", Quantity: 1, "Unit Retail": -434.33, Retail: -434.33, "Labor Cost": 55, "Material Cost": 1, margin: 1.128934, "Client Approved": true, "QC Passed": true, Complete: true, id: "recTJgd3ok46iyioC" },
-        { "Task Number": 1, Category: ["recMdPX9UQl8RW9mo"], Description: "Kitchen & Bathroom Repairs — remove and replace old grout and caulking from kitchen cabinets and both bathrooms.", "Name (from Locations)": ["Master Bath"], note: "", Quantity: 1, "Unit Retail": 809.33, Retail: 809.33, "Labor Cost": 1, "Material Cost": 1, margin: 0.42, "Client Approved": true, "QC Passed": false, Complete: false, id: "recXq8pLExample2" },
+        { "Task Number": 0, Category: ["recMdPX9UQl8RW9mo"], Description: "ADJUSTMENT — invoice reduced to match work completed (Amt -$434.33)", "Name (from Locations)": ["Kitchen"], assignee_from_tracker: ["Sarat Painting and Renovation LLC"], note: "Reviewed with client", Quantity: 1, "Unit Retail": -434.33, Retail: -434.33, "Labor Cost": 55, "Material Cost": 1, margin: 1.128934, "Client Approved": true, "QC Passed": true, Complete: true, id: "recTJgd3ok46iyioC" },
+        { "Task Number": 1, Category: ["recMdPX9UQl8RW9mo"], Description: "Kitchen & Bathroom Repairs — remove and replace old grout and caulking from kitchen cabinets and both bathrooms.", "Name (from Locations)": ["Master Bath"], assignee_from_tracker: ["Jay Helvey"], note: "", Quantity: 1, "Unit Retail": 809.33, Retail: 809.33, "Labor Cost": 1, "Material Cost": 1, margin: 0.42, "Client Approved": true, "QC Passed": false, Complete: false, id: "recXq8pLExample2" },
       ],
     },
 
@@ -64,12 +64,14 @@ export default {
           },
         },
         { key: "Name (from Locations)", label: "Location", type: "text", editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
+        // Vendor comes from the tracker — always visible, not entered manually.
+        { key: "assignee_from_tracker", label: "Vendor", type: "text", editable: false, addable: false },
         { key: "Quantity", label: "Qty", type: "number", width: 70, addDefault: 1 },
         { key: "Unit Retail", label: "Unit Retail", type: "currency", hideForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         // Retail is COMPUTED (Qty × Unit Retail) — read-only in the grid and on the form.
         { key: "Retail", label: "Retail", type: "currency", total: true, editable: false, addable: true, compute: { op: "product", keys: ["Quantity", "Unit Retail"] } },
-        { key: "Labor Cost", label: "Labor", type: "currency", total: true, hidden: true },
-        { key: "Material Cost", label: "Material", type: "currency", total: true, hidden: true },
+        { key: "Labor Cost", label: "Labor", type: "currency", total: true },
+        { key: "Material Cost", label: "Material", type: "currency", total: true },
         { key: "margin", label: "Margin", type: "percent", scale: 100, editable: false },
         { key: "note", label: "Note", type: "text", multiline: true, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Client Approved", label: "Approved", type: "boolean", addable: false },
