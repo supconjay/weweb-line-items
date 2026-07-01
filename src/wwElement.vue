@@ -10,6 +10,13 @@
         <span class="pp-badge pp-badge--info"><svg class="pp-svg" v-bind="svgAttrs"><path :d="ic('list')"></path></svg> {{ totalCount }} {{ content.itemsLabel || 'Items' }}</span>
       </div>
 
+      <!-- search -->
+      <div v-if="content.showSearch !== false" class="pp-search">
+        <svg class="pp-svg pp-search__icon" v-bind="svgAttrs"><path :d="ic('search')"></path></svg>
+        <input class="pp-input pp-search__input" :value="searchQuery" @input="onSearch($event.target.value)" @keydown.enter="onSearch($event.target.value, true)" :placeholder="content.searchPlaceholder || 'Search Items...'" />
+        <button v-if="searchQuery" class="pp-search__clear" type="button" @click="onSearch('', true)" aria-label="Clear search"><svg class="pp-svg" v-bind="svgAttrs"><path :d="ic('x')"></path></svg></button>
+      </div>
+
       <!-- toolbar -->
       <div v-if="content.showToolbar !== false" class="pp-toolbar">
         <button v-if="content.showFilters !== false" class="pp-tool" :class="{ 'pp-tool--on': filtersOpen }" type="button" @click="toggleFilters">
@@ -169,6 +176,7 @@ const ICONS = {
   check: "M20 6L9 17l-5-5",
   sort: "M8 9l4-4 4 4M16 15l-4 4-4-4",
   grip: "M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01",
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35",
 };
 
 const MONEY_RE = /price|cost|retail|total|amount|labor|material|payout|expense|subtotal|fee|tax|pay\b/i;
@@ -193,9 +201,11 @@ export default {
       editValue: "",
       newRow: {},
       pickerOpenKey: null,
+      searchQuery: "",
       dragFrom: null,
       dragOver: null,
       _onDocClick: null,
+      _searchTimer: null,
     };
   },
   created() {
@@ -211,6 +221,7 @@ export default {
   },
   beforeUnmount() {
     if (this._onDocClick) document.removeEventListener("click", this._onDocClick);
+    if (this._searchTimer) clearTimeout(this._searchTimer);
   },
   watch: {
     "content.items"() { this.syncRows(); },
@@ -254,14 +265,20 @@ export default {
       rows = rows.filter((r) => fcols.every((col) => {
         const f = String(this.filters[col.key] || "").trim().toLowerCase();
         if (!f) return true;
-        return String(this.normVal(r.data[col.key])).toLowerCase().indexOf(f) !== -1;
+        return String(this.normVal(this.cellValue(col, r.data))).toLowerCase().indexOf(f) !== -1;
       }));
+      // Optional client-side search across all columns.
+      const q = this.content.searchLocal ? String(this.searchQuery || "").trim().toLowerCase() : "";
+      if (q) {
+        const scols = this.resolvedColumns.filter((c) => c.filterable !== false);
+        rows = rows.filter((r) => scols.some((col) => String(this.normVal(this.cellValue(col, r.data))).toLowerCase().indexOf(q) !== -1));
+      }
       if (this.sortKey && this.sortDir) {
         const col = this.colByKey(this.sortKey);
         const num = col && this.isNumericType(col.type);
         const dir = this.sortDir === "asc" ? 1 : -1;
         rows = rows.slice().sort((a, b) => {
-          const ca = a.data[this.sortKey], cb = b.data[this.sortKey];
+          const ca = this.cellValue(col, a.data), cb = this.cellValue(col, b.data);
           if (num) return ((Number(ca) || 0) - (Number(cb) || 0)) * dir;
           return String(this.normVal(ca)).localeCompare(String(this.normVal(cb))) * dir;
         });
@@ -393,6 +410,7 @@ export default {
         scale: c.scale != null && c.scale !== "" ? Number(c.scale) : null,
         sortOptions: c.sortOptions !== false,
         compute: c.compute && typeof c.compute === "object" ? c.compute : null,
+        derive: Array.isArray(c.derive) && c.derive.length ? c.derive : null,
         picker: c.picker && typeof c.picker === "object" ? c.picker : null,
         addDefault: c.addDefault,
       };
@@ -447,7 +465,20 @@ export default {
       if (op === "difference") return nums.length ? nums.reduce((a, b) => a - b) : 0;
       return keys.length ? nums.reduce((a, b) => a * b, 1) : 0; // product
     },
-    cellValue(col, rowData) { return col.compute ? this.computeValue(col, rowData) : (rowData ? rowData[col.key] : ""); },
+    deriveValue(col, rowData) {
+      for (const rule of (col.derive || [])) {
+        if (rule.ifKey == null) return rule.value; // fallback (no condition)
+        const t = this.truthyBool(this.getPath(rowData, rule.ifKey));
+        const pass = rule.is === "falsy" ? !t : t; // default: truthy
+        if (pass) return rule.value;
+      }
+      return "";
+    },
+    cellValue(col, rowData) {
+      if (col.derive) return this.deriveValue(col, rowData);
+      if (col.compute) return this.computeValue(col, rowData);
+      return rowData ? rowData[col.key] : "";
+    },
     // ---- add-form price-guide picker ----
     pickerSourceItems(col) {
       const p = col.picker || {};
@@ -603,10 +634,11 @@ export default {
     },
     statusKey(status) {
       const s = String(Array.isArray(status) ? status.join(" ") : (status == null ? "" : status)).toLowerCase();
-      if (s.includes("progress")) return "warning";
-      if (s.includes("approv") || s.includes("paid") || s.includes("complete") || s.includes("finish")) return "success";
-      if (s.includes("declin") || s.includes("cancel") || s.includes("overdue") || s.includes("reject")) return "danger";
-      if (s.includes("schedul") || s.includes("draft") || s.includes("pending")) return "info";
+      // Check negatives first so "unapproved"/"unpaid" don't match "approv"/"paid".
+      if (/unapprov|unpaid|declin|cancel|overdue|reject|fail|void/.test(s)) return "danger";
+      if (/progress|pending|review|hold|await/.test(s)) return "warning";
+      if (/approv|paid|complete|finish|done|success|active/.test(s)) return "success";
+      if (/schedul|draft|new|open/.test(s)) return "info";
       return "slate";
     },
     isEditable(col) { return this.content.editable !== false && col.editable !== false && !col.compute; },
@@ -681,6 +713,15 @@ export default {
       else if (this.sortDir === "asc") this.sortDir = "desc";
       else { this.sortKey = null; this.sortDir = null; }
       this.$emit("trigger-event", { name: "sortChange", event: { key: this.sortKey, dir: this.sortDir } });
+    },
+    onSearch(v, immediate) {
+      this.searchQuery = v;
+      this.page = 1;
+      if (this._searchTimer) { clearTimeout(this._searchTimer); this._searchTimer = null; }
+      const fire = () => this.$emit("trigger-event", { name: "search", event: { query: this.searchQuery } });
+      const delay = Number(this.content.searchDebounce);
+      if (immediate || !(delay > 0)) fire();
+      else this._searchTimer = setTimeout(fire, delay);
     },
     toggleFilters() { this.filtersOpen = !this.filtersOpen; },
     setFilter(col, val) {
@@ -784,6 +825,14 @@ export default {
 .pp-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .pp-badge .pp-svg { width: 14px; height: 14px; }
 .pp-badge--info { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); }
+
+/* search */
+.pp-search { position: relative; margin-bottom: 14px; }
+.pp-search__icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--text-subtle); pointer-events: none; }
+.pp-search__input { padding-left: 40px; padding-right: 40px; height: 44px; font-size: 14px; }
+.pp-search__clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: inline-grid; place-items: center; width: 28px; height: 28px; border: none; background: none; border-radius: 7px; color: var(--text-subtle); cursor: pointer; }
+.pp-search__clear:hover { background: var(--surface-2); color: var(--text); }
+.pp-search__clear .pp-svg { width: 15px; height: 15px; }
 
 /* toolbar */
 .pp-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }

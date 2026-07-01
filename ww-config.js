@@ -9,6 +9,7 @@ export default {
     { name: "pageChange", label: { en: "On page changed" }, event: { page: 1 } },
     { name: "reorder", label: { en: "On rows reordered" }, event: { from: 0, to: 0, ids: [], rows: [] } },
     { name: "optionSelect", label: { en: "On dropdown select (e.g. category → price guide)" }, event: { key: "", value: "", label: "", context: "", rowIndex: -1, row: {} } },
+    { name: "search", label: { en: "On search" }, event: { query: "" } },
   ],
   properties: {
     title: { label: { en: "Title" }, type: "Text", defaultValue: "Line Items", bindable: true },
@@ -46,6 +47,16 @@ export default {
     columns: {
       label: { en: "Columns (blank = auto)" }, type: "Array", bindable: true, section: "settings",
       defaultValue: [
+        // Derived Status — evaluated top-to-bottom: Complete → "Completed",
+        // else not Client Approved → "Unapproved", else "In Progress".
+        {
+          key: "status", label: "Status", type: "status", editable: false, addable: false,
+          derive: [
+            { ifKey: "Complete", is: "truthy", value: "Completed" },
+            { ifKey: "Client Approved", is: "falsy", value: "Unapproved" },
+            { value: "In Progress" },
+          ],
+        },
         { key: "Task Number", label: "Task #", type: "number", width: 70, editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Category", label: "Category", type: "text", optionsKey: "categories", optionLabel: "name", optionValue: "airtable_record_id", addable: true, emitOnSelect: true },
         {
@@ -121,6 +132,12 @@ export default {
     // A column with `showForLob: ["<id>"]` is visible ONLY for those LOBs;
     // a column with `hideForLob: ["<id>"]` is hidden for those LOBs.
     lob: { label: { en: "Parent LOB id (bind)" }, type: "Text", defaultValue: "36ac5de5-45df-4134-8e4c-14c5055099e5", bindable: true, section: "settings" },
+
+    // ---- search ----
+    showSearch: { label: { en: "Show search bar" }, type: "OnOff", defaultValue: true, bindable: true },
+    searchPlaceholder: { label: { en: "Search placeholder" }, type: "Text", defaultValue: "Search Items...", bindable: true },
+    searchLocal: { label: { en: "Also filter rows locally" }, type: "OnOff", defaultValue: false, bindable: true },
+    searchDebounce: { label: { en: "Search debounce (ms)" }, type: "Number", options: { min: 0, max: 2000, step: 50 }, defaultValue: 300, bindable: true },
 
     // ---- features ----
     editable: { label: { en: "Inline editing" }, type: "OnOff", defaultValue: true, bindable: true },
