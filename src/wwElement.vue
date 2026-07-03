@@ -98,7 +98,7 @@
                 <strong v-if="isTotalCol(col)">{{ cellDisplay(col, totals[col.key]) }}</strong>
                 <strong v-else-if="ci === 0" class="pp-foot__label">{{ content.totalsLabel || 'Total' }}</strong>
               </td>
-              <td v-if="content.showRowAction"></td>
+              <td v-if="content.showRowAction" class="pp-grid__actionfoot"></td>
             </tr>
           </tfoot>
         </table>
@@ -255,8 +255,9 @@ export default {
       let w = 0;
       this.visibleColumns.forEach((c) => { w += c.width ? Number(c.width) : this.defaultColWidth(c); });
       if (this.canReorder) w += 34;
-      if (this.content.showRowAction) w += 96;
-      return { minWidth: w + "px" };
+      if (this.content.showRowAction) w += 110;
+      // Expose as a CSS var so the mobile card layout can reset it (min-width: 0).
+      return { "--pp-grid-min": w + "px" };
     },
     anyFilterActive() { return Object.keys(this.filters).some((k) => String(this.filters[k] || "").trim() !== ""); },
     filteredRows() {
@@ -860,7 +861,7 @@ export default {
 
 /* grid */
 .pp-grid__wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
-.pp-grid { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 12.5px; }
+.pp-grid { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 12.5px; min-width: var(--pp-grid-min, auto); }
 .pp-grid thead th { padding: 10px 12px; font-size: 11.5px; font-weight: 700; color: var(--text-muted); background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
 .pp-th { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; margin: 0; font: inherit; font-size: 12px; font-weight: 700; color: inherit; cursor: default; }
 .pp-th--sortable { cursor: pointer; }
@@ -875,6 +876,13 @@ export default {
 .pp-grid tbody tr:hover { background: var(--surface-2); }
 .pp-grid tfoot td { padding: 12px 14px; border-top: 2px solid var(--border-strong); background: var(--surface-2); color: var(--text); font-size: 13.5px; }
 .pp-foot__label { color: var(--text-muted); text-transform: uppercase; font-size: 11.5px; letter-spacing: .04em; }
+
+/* pinned row-action (View) column — stays visible while scrolling horizontally */
+.pp-grid__actionhead, .pp-grid__action, .pp-grid__actionfoot { position: sticky; right: 0; z-index: 2; box-shadow: -10px 0 12px -10px rgba(16, 24, 40, .18); }
+.pp-grid tbody td.pp-grid__action { background: var(--surface); }
+.pp-grid tbody tr:hover td.pp-grid__action { background: var(--surface-2); }
+.pp-grid thead th.pp-grid__actionhead { background: var(--surface-2); z-index: 3; }
+.pp-grid tfoot td.pp-grid__actionfoot { background: var(--surface-2); }
 .pp-al-left { text-align: left; }
 .pp-al-right { text-align: right; }
 .pp-al-center { text-align: center; }
@@ -972,7 +980,9 @@ export default {
 /* mobile card layout for the grid */
 @container (max-width: 600px) {
   .pp-grid__wrap { border: none; overflow: visible; }
-  .pp-grid { table-layout: fixed; }
+  .pp-grid { table-layout: fixed; min-width: 0; }
+  /* unpin the action column in stacked card mode */
+  .pp-grid__actionhead, .pp-grid__action, .pp-grid__actionfoot { position: static; box-shadow: none; }
   .pp-grid thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .pp-grid tbody tr { display: block; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; padding: 4px 6px; background: var(--surface); }
   .pp-grid tbody tr:hover { background: var(--surface); }
