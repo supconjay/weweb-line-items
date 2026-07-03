@@ -47,6 +47,7 @@ export default {
     columns: {
       label: { en: "Columns (blank = auto)" }, type: "Array", bindable: true, section: "settings",
       defaultValue: [
+        { key: "Task Number", label: "Task #", type: "number", width: 70, editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         // Derived Status — evaluated top-to-bottom: Complete → "Completed",
         // else not Client Approved → "Unapproved", else "In Progress".
         {
@@ -57,7 +58,8 @@ export default {
             { value: "In Progress" },
           ],
         },
-        { key: "Task Number", label: "Task #", type: "number", width: 70, editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
+        { key: "QC Passed", label: "QC", type: "boolean", addable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
+        { key: "Name (from Locations)", label: "Location", type: "text", editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Category", label: "Category", type: "text", optionsKey: "categories", optionLabel: "name", optionValue: "airtable_record_id", addable: true, emitOnSelect: true },
         {
           key: "Description", label: "Description", type: "text", multiline: true, width: 280,
@@ -74,19 +76,17 @@ export default {
             map: { "Description": "description", "Unit Retail": "retail", "Labor Cost": "labor", "Material Cost": "material" },
           },
         },
-        { key: "Name (from Locations)", label: "Location", type: "text", editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
-        // Vendor comes from the tracker — always visible, not entered manually.
-        { key: "assignee_from_tracker", label: "Vendor", type: "text", editable: false, addable: false },
         { key: "Quantity", label: "Qty", type: "number", width: 70, addDefault: 1 },
+        { key: "note", label: "Note", type: "text", multiline: true, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Unit Retail", label: "Unit Retail", type: "currency", hideForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         // Retail is COMPUTED (Qty × Unit Retail) — read-only in the grid and on the form.
         { key: "Retail", label: "Retail", type: "currency", total: true, editable: false, addable: true, compute: { op: "product", keys: ["Quantity", "Unit Retail"] } },
+        // Vendor comes from the tracker — always visible, not entered manually.
+        { key: "assignee_from_tracker", label: "Vendor", type: "text", editable: false, addable: false },
+        { key: "Client Approved", label: "Approved", type: "boolean", addable: false },
         { key: "Labor Cost", label: "Labor", type: "currency", total: true },
         { key: "Material Cost", label: "Material", type: "currency", total: true },
         { key: "margin", label: "Margin", type: "percent", scale: 100, editable: false },
-        { key: "note", label: "Note", type: "text", multiline: true, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
-        { key: "Client Approved", label: "Approved", type: "boolean", addable: false },
-        { key: "QC Passed", label: "QC", type: "boolean", addable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Complete", label: "Complete", type: "boolean", addable: false },
       ],
     },
