@@ -87,6 +87,7 @@ export default {
         { key: "Labor Cost", label: "Labor", type: "currency", total: true },
         { key: "Material Cost", label: "Material", type: "currency", total: true },
         { key: "margin", label: "Margin", type: "percent", scale: 100, editable: false },
+        { key: "Complete", label: "Complete", type: "boolean", addable: false },
       ],
     },
 
