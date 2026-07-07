@@ -569,13 +569,15 @@ export default {
     // First visible column is pinned left (with the drag handle) while scrolling.
     pinned(ci) { return this.pinLeft && ci === 0; },
     thStyle(col) { return col.width ? { width: col.width + "px", minWidth: col.width + "px" } : {}; },
-    // Explicit column width overrides the CSS min-width floor on multiline cells.
-    tdStyle(col) { return col.width ? { minWidth: col.width + "px" } : {}; },
+    // Inline min-width on every cell so widths hold even when the instance's
+    // Columns config predates width defaults (explicit col.width still wins).
+    tdStyle(col) { return { minWidth: (col.width ? Number(col.width) : this.defaultColWidth(col)) + "px" }; },
     defaultColWidth(col) {
       if (col.type === "boolean") return 96;
       if (col.type === "status") return 130;
       if (this.isNumericType(col.type)) return 100;
-      if (col.multiline) return 560; // matches the CSS min-width on .pp-td--multiline
+      // Description gets room for full text; other multiline (e.g. Note) stays modest.
+      if (col.multiline) return /desc/i.test(String(col.key || "") + " " + String(col.label || "")) ? 560 : 260;
       return 140;
     },
     money(n, decimals) {
@@ -912,7 +914,8 @@ export default {
 .pp-input--cell { padding: 6px 8px; font-size: 13px; }
 .pp-textarea { resize: none; overflow-y: auto; min-height: 34px; max-height: 320px; line-height: 1.5; white-space: pre-wrap; }
 .pp-cell--multiline { display: block; white-space: pre-line; word-break: break-word; }
-.pp-td--multiline { white-space: normal; vertical-align: top; min-width: 560px; max-width: none; }
+/* widths come from the inline min-width set by tdStyle() */
+.pp-td--multiline { white-space: normal; vertical-align: top; max-width: none; }
 
 /* drag-to-reorder */
 .pp-grid__draghead { width: 34px; }
@@ -1006,7 +1009,8 @@ export default {
   .pp-grid thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .pp-grid tbody tr { display: block; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; padding: 4px 6px; background: var(--surface); }
   .pp-grid tbody tr:hover { background: var(--surface); }
-  .pp-grid tbody td { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--border); padding: 9px 6px; white-space: normal; max-width: none; text-align: right; }
+  /* !important: cells carry an inline min-width from tdStyle() that must not apply here */
+  .pp-grid tbody td { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--border); padding: 9px 6px; white-space: normal; max-width: none; text-align: right; min-width: 0 !important; }
   .pp-grid tbody tr td:last-child { border-bottom: none; }
   .pp-grid tbody td::before { content: attr(data-label); font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; text-align: left; flex: none; }
   .pp-grid tbody td.pp-td--editing { display: flex; }
