@@ -892,7 +892,7 @@ export default {
 .pp-td--editing { padding: 4px 6px; background: color-mix(in srgb, var(--primary) 6%, transparent); }
 .pp-input--cell { padding: 6px 8px; font-size: 13px; }
 .pp-textarea { resize: none; overflow-y: auto; min-height: 34px; max-height: 320px; line-height: 1.5; white-space: pre-wrap; }
-.pp-cell--multiline { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.pp-cell--multiline { display: block; white-space: pre-line; word-break: break-word; }
 .pp-td--multiline { white-space: normal; vertical-align: top; }
 
 /* drag-to-reorder */
@@ -993,7 +993,7 @@ export default {
   .pp-grid__drag, .pp-grid__draghead { display: none; }
   .pp-grid tbody td.pp-td--multiline { display: block; }
   .pp-grid tbody td.pp-td--multiline::before { display: block; margin-bottom: 4px; }
-  .pp-cell--multiline { -webkit-line-clamp: 6; text-align: left; }
+  .pp-cell--multiline { text-align: left; }
   .pp-grid tfoot { display: block; }
   .pp-grid tfoot tr { display: block; border: 1px solid var(--border-strong); border-radius: 12px; }
   .pp-grid tfoot td { display: flex; align-items: center; justify-content: space-between; border-top: none; border-bottom: 1px solid var(--border); }
