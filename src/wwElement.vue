@@ -69,7 +69,7 @@
               <td v-if="canReorder" class="pp-grid__drag" :data-label="''" draggable="true" @dragstart="onDragStart(r, $event)" @dragend="onDragEnd" title="Drag to reorder">
                 <svg class="pp-svg" v-bind="svgAttrs"><path :d="ic('grip')"></path></svg>
               </td>
-              <td v-for="col in visibleColumns" :key="col.key" :data-label="col.label" :class="[alignClass(col), { 'pp-td--editable': isEditable(col), 'pp-td--editing': isEditingCell(col, r), 'pp-td--multiline': col.multiline }]" @click="startEdit(col, r)">
+              <td v-for="col in visibleColumns" :key="col.key" :data-label="col.label" :style="tdStyle(col)" :class="[alignClass(col), { 'pp-td--editable': isEditable(col), 'pp-td--editing': isEditingCell(col, r), 'pp-td--multiline': col.multiline }]" @click="startEdit(col, r)">
                 <template v-if="isEditingCell(col, r)">
                   <select v-if="optionsByKey[col.key] && optionsByKey[col.key].length" class="pp-input pp-input--cell" v-model="editValue" ref="editor" @change="commitEdit" @blur="commitEdit" @keydown.enter.prevent="commitEdit" @keydown.esc="cancelEdit">
                     <option v-for="opt in optionsByKey[col.key]" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
@@ -565,11 +565,13 @@ export default {
     },
     alignClass(col) { return "pp-al-" + this.alignFor(col); },
     thStyle(col) { return col.width ? { width: col.width + "px", minWidth: col.width + "px" } : {}; },
+    // Explicit column width overrides the CSS min-width floor on multiline cells.
+    tdStyle(col) { return col.width ? { minWidth: col.width + "px" } : {}; },
     defaultColWidth(col) {
       if (col.type === "boolean") return 96;
       if (col.type === "status") return 130;
       if (this.isNumericType(col.type)) return 100;
-      if (col.multiline) return 200;
+      if (col.multiline) return 420; // matches the CSS min-width on .pp-td--multiline
       return 140;
     },
     money(n, decimals) {
@@ -893,7 +895,7 @@ export default {
 .pp-input--cell { padding: 6px 8px; font-size: 13px; }
 .pp-textarea { resize: none; overflow-y: auto; min-height: 34px; max-height: 320px; line-height: 1.5; white-space: pre-wrap; }
 .pp-cell--multiline { display: block; white-space: pre-line; word-break: break-word; }
-.pp-td--multiline { white-space: normal; vertical-align: top; }
+.pp-td--multiline { white-space: normal; vertical-align: top; min-width: 420px; }
 
 /* drag-to-reorder */
 .pp-grid__draghead { width: 34px; }
@@ -991,7 +993,7 @@ export default {
   .pp-grid tbody td::before { content: attr(data-label); font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; text-align: left; flex: none; }
   .pp-grid tbody td.pp-td--editing { display: flex; }
   .pp-grid__drag, .pp-grid__draghead { display: none; }
-  .pp-grid tbody td.pp-td--multiline { display: block; }
+  .pp-grid tbody td.pp-td--multiline { display: block; min-width: 0; }
   .pp-grid tbody td.pp-td--multiline::before { display: block; margin-bottom: 4px; }
   .pp-cell--multiline { text-align: left; }
   .pp-grid tfoot { display: block; }

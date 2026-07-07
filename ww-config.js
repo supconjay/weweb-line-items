@@ -62,7 +62,7 @@ export default {
         { key: "Name (from Locations)", label: "Location", type: "text", editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Category", label: "Category", type: "text", optionsKey: "categories", optionLabel: "name", optionValue: "airtable_record_id", addable: true, emitOnSelect: true },
         {
-          key: "Description", label: "Description", type: "text", multiline: true, width: 380,
+          key: "Description", label: "Description", type: "text", multiline: true, width: 480,
           // In the ADD form, this field becomes a searchable price-guide picker.
           // Selecting an item fills the row via `map` (rowField: priceGuideField).
           picker: {
