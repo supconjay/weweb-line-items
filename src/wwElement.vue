@@ -49,11 +49,11 @@
 
       <!-- grid -->
       <div class="pp-grid__wrap">
-        <table class="pp-grid" :class="{ 'pp-grid--wrap': content.wrapText }" :style="gridStyle">
+        <table class="pp-grid" :class="{ 'pp-grid--wrap': content.wrapText, 'pp-grid--pin': pinLeft }" :style="gridStyle">
           <thead>
             <tr>
               <th v-if="canReorder" class="pp-grid__draghead"></th>
-              <th v-for="col in visibleColumns" :key="col.key" :style="thStyle(col)" :class="alignClass(col)">
+              <th v-for="(col, ci) in visibleColumns" :key="col.key" :style="thStyle(col)" :class="[alignClass(col), { 'pp-pinleft': pinned(ci) }]">
                 <button class="pp-th" :class="{ 'pp-th--sortable': col.sortable }" type="button" @click="toggleSort(col)">
                   <span>{{ col.label }}</span>
                   <svg v-if="col.sortable" class="pp-sort" :class="{ 'pp-sort--active': sortKey === col.key }" v-bind="svgAttrs">
@@ -69,7 +69,7 @@
               <td v-if="canReorder" class="pp-grid__drag" :data-label="''" draggable="true" @dragstart="onDragStart(r, $event)" @dragend="onDragEnd" title="Drag to reorder">
                 <svg class="pp-svg" v-bind="svgAttrs"><path :d="ic('grip')"></path></svg>
               </td>
-              <td v-for="col in visibleColumns" :key="col.key" :data-label="col.label" :style="tdStyle(col)" :class="[alignClass(col), { 'pp-td--editable': isEditable(col), 'pp-td--editing': isEditingCell(col, r), 'pp-td--multiline': col.multiline }]" @click="startEdit(col, r)">
+              <td v-for="(col, ci) in visibleColumns" :key="col.key" :data-label="col.label" :style="tdStyle(col)" :class="[alignClass(col), { 'pp-td--editable': isEditable(col), 'pp-td--editing': isEditingCell(col, r), 'pp-td--multiline': col.multiline, 'pp-pinleft': pinned(ci) }]" @click="startEdit(col, r)">
                 <template v-if="isEditingCell(col, r)">
                   <select v-if="optionsByKey[col.key] && optionsByKey[col.key].length" class="pp-input pp-input--cell" v-model="editValue" ref="editor" @change="commitEdit" @blur="commitEdit" @keydown.enter.prevent="commitEdit" @keydown.esc="cancelEdit">
                     <option v-for="opt in optionsByKey[col.key]" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
@@ -93,8 +93,8 @@
           </tbody>
           <tfoot v-if="content.showTotals && totalColumns.length">
             <tr>
-              <td v-if="canReorder"></td>
-              <td v-for="(col, ci) in visibleColumns" :key="col.key" :data-label="col.label" :class="alignClass(col)">
+              <td v-if="canReorder" class="pp-grid__dragfoot"></td>
+              <td v-for="(col, ci) in visibleColumns" :key="col.key" :data-label="col.label" :class="[alignClass(col), { 'pp-pinleft': pinned(ci) }]">
                 <strong v-if="isTotalCol(col)">{{ cellDisplay(col, totals[col.key]) }}</strong>
                 <strong v-else-if="ci === 0" class="pp-foot__label">{{ content.totalsLabel || 'Total' }}</strong>
               </td>
@@ -248,6 +248,7 @@ export default {
     filterableColumns() { return this.visibleColumns.filter((c) => c.filterable); },
     addColumns() { return this.resolvedColumns.filter((c) => this.isAddable(c)); },
     canReorder() { return this.content.reorderable !== false; },
+    pinLeft() { return this.content.pinFirstColumn !== false; },
     footColspan() { return this.visibleColumns.length + (this.content.showRowAction ? 1 : 0) + (this.canReorder ? 1 : 0); },
     gridStyle() {
       // Give the table a comfortable min-width so columns aren't crammed; the
@@ -257,7 +258,8 @@ export default {
       if (this.canReorder) w += 34;
       if (this.content.showRowAction) w += 110;
       // Expose as a CSS var so the mobile card layout can reset it (min-width: 0).
-      return { "--pp-grid-min": w + "px" };
+      // --pp-pin-left offsets the pinned first column past the drag handle.
+      return { "--pp-grid-min": w + "px", "--pp-pin-left": (this.canReorder ? 34 : 0) + "px" };
     },
     anyFilterActive() { return Object.keys(this.filters).some((k) => String(this.filters[k] || "").trim() !== ""); },
     filteredRows() {
@@ -564,6 +566,8 @@ export default {
       return this.isNumericType(col.type) ? "right" : "left";
     },
     alignClass(col) { return "pp-al-" + this.alignFor(col); },
+    // First visible column is pinned left (with the drag handle) while scrolling.
+    pinned(ci) { return this.pinLeft && ci === 0; },
     thStyle(col) { return col.width ? { width: col.width + "px", minWidth: col.width + "px" } : {}; },
     // Explicit column width overrides the CSS min-width floor on multiline cells.
     tdStyle(col) { return col.width ? { minWidth: col.width + "px" } : {}; },
@@ -571,7 +575,7 @@ export default {
       if (col.type === "boolean") return 96;
       if (col.type === "status") return 130;
       if (this.isNumericType(col.type)) return 100;
-      if (col.multiline) return 420; // matches the CSS min-width on .pp-td--multiline
+      if (col.multiline) return 560; // matches the CSS min-width on .pp-td--multiline
       return 140;
     },
     money(n, decimals) {
@@ -885,6 +889,19 @@ export default {
 .pp-grid tbody tr:hover td.pp-grid__action { background: var(--surface-2); }
 .pp-grid thead th.pp-grid__actionhead { background: var(--surface-2); z-index: 3; }
 .pp-grid tfoot td.pp-grid__actionfoot { background: var(--surface-2); }
+
+/* pinned first column (e.g. Task #) — stays visible while scrolling horizontally.
+   The drag handle pins at left: 0 and the first data column right after it. */
+.pp-grid--pin .pp-grid__draghead, .pp-grid--pin .pp-grid__drag, .pp-grid--pin .pp-grid__dragfoot { position: sticky; left: 0; z-index: 2; }
+.pp-grid--pin tbody td.pp-grid__drag { background: var(--surface); }
+.pp-grid--pin tbody tr:hover td.pp-grid__drag { background: var(--surface-2); }
+.pp-grid--pin thead th.pp-grid__draghead { background: var(--surface-2); z-index: 3; }
+.pp-grid--pin tfoot td.pp-grid__dragfoot { background: var(--surface-2); }
+.pp-pinleft { position: sticky; left: var(--pp-pin-left, 0px); z-index: 2; box-shadow: 10px 0 12px -10px rgba(16, 24, 40, .18); }
+.pp-grid tbody td.pp-pinleft { background: var(--surface); }
+.pp-grid tbody tr:hover td.pp-pinleft { background: var(--surface-2); }
+.pp-grid thead th.pp-pinleft { background: var(--surface-2); z-index: 3; }
+.pp-grid tfoot td.pp-pinleft { background: var(--surface-2); }
 .pp-al-left { text-align: left; }
 .pp-al-right { text-align: right; }
 .pp-al-center { text-align: center; }
@@ -895,7 +912,7 @@ export default {
 .pp-input--cell { padding: 6px 8px; font-size: 13px; }
 .pp-textarea { resize: none; overflow-y: auto; min-height: 34px; max-height: 320px; line-height: 1.5; white-space: pre-wrap; }
 .pp-cell--multiline { display: block; white-space: pre-line; word-break: break-word; }
-.pp-td--multiline { white-space: normal; vertical-align: top; min-width: 420px; }
+.pp-td--multiline { white-space: normal; vertical-align: top; min-width: 560px; max-width: none; }
 
 /* drag-to-reorder */
 .pp-grid__draghead { width: 34px; }
@@ -983,8 +1000,9 @@ export default {
 @container (max-width: 600px) {
   .pp-grid__wrap { border: none; overflow: visible; }
   .pp-grid { table-layout: fixed; min-width: 0; }
-  /* unpin the action column in stacked card mode */
+  /* unpin the action + first columns in stacked card mode */
   .pp-grid__actionhead, .pp-grid__action, .pp-grid__actionfoot { position: static; box-shadow: none; }
+  .pp-pinleft, .pp-grid--pin .pp-grid__draghead, .pp-grid--pin .pp-grid__drag, .pp-grid--pin .pp-grid__dragfoot { position: static; box-shadow: none; }
   .pp-grid thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .pp-grid tbody tr { display: block; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; padding: 4px 6px; background: var(--surface); }
   .pp-grid tbody tr:hover { background: var(--surface); }

@@ -62,7 +62,7 @@ export default {
         { key: "Name (from Locations)", label: "Location", type: "text", editable: false, showForLob: ["36ac5de5-45df-4134-8e4c-14c5055099e5"] },
         { key: "Category", label: "Category", type: "text", optionsKey: "categories", optionLabel: "name", optionValue: "airtable_record_id", addable: true, emitOnSelect: true },
         {
-          key: "Description", label: "Description", type: "text", multiline: true, width: 480,
+          key: "Description", label: "Description", type: "text", multiline: true, width: 560,
           // In the ADD form, this field becomes a searchable price-guide picker.
           // Selecting an item fills the row via `map` (rowField: priceGuideField).
           picker: {
@@ -87,7 +87,6 @@ export default {
         { key: "Labor Cost", label: "Labor", type: "currency", total: true },
         { key: "Material Cost", label: "Material", type: "currency", total: true },
         { key: "margin", label: "Margin", type: "percent", scale: 100, editable: false },
-        { key: "Complete", label: "Complete", type: "boolean", addable: false },
       ],
     },
 
@@ -142,6 +141,7 @@ export default {
     // ---- features ----
     editable: { label: { en: "Inline editing" }, type: "OnOff", defaultValue: true, bindable: true },
     reorderable: { label: { en: "Drag to reorder rows" }, type: "OnOff", defaultValue: true, bindable: true },
+    pinFirstColumn: { label: { en: "Pin first column (scroll)" }, type: "OnOff", defaultValue: true, bindable: true },
     showFilters: { label: { en: "Enable filters" }, type: "OnOff", defaultValue: true, bindable: true },
     filtersOpen: { label: { en: "Filters open by default" }, type: "OnOff", defaultValue: false, bindable: true },
     showColumnChooser: { label: { en: "Show column chooser" }, type: "OnOff", defaultValue: true, bindable: true },
